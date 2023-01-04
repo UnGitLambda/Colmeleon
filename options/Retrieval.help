@@ -1,0 +1,2 @@
+The retrieval consists in getting items from the database.
+The application returns the images corresponding to the image given by the user.It compares the images with each other using their color histogram. 
