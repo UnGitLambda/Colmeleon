@@ -1,6 +1,0 @@
-The histogram represents the distribution of the intensities of the image. 
-It is a fundamental tool for image processing. 
-There is two types of histogram : 
-- color histogram : we can consider the histograms of the 3 components independently or we build a histogram directly in the color space RGB. 
-- grey histogram :  the histogram is defined as a discrete function that associates each intensity value with the number of pixels taking this value. The determination of the histogram is therefore made by counting the number of pixels for each intensity of the image.
-

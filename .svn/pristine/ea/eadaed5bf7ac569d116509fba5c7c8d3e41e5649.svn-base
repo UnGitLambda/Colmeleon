@@ -1,5 +1,0 @@
-The segmentation consists in separating differents regions of the image, 
-based on characteristics. 
-This process can be interesting in robotic since robots needing to 
-understand their environnement may use this kind of algorithm to apprehend 
-obstacles.

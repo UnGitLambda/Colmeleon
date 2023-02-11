@@ -1,9 +1,0 @@
-image = options/defaultresulttext.jpg
-database = None
-depth = 5
-bins = 255
-saver = None
-noadd = False
-incremental = False
-grey = False
-background_color = #554356

@@ -1,9 +1,0 @@
-image=None
-database=/Users/elonalahmi/2021-l3f1/2021-l3f1/trunk/DefaultDB
-depth=5
-bins=255
-saver=None
-noadd=False
-incremental=False
-grey=False
-background_color=#554356

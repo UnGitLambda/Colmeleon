@@ -1,9 +1,0 @@
-The Incremental Intersection algorithm consist of an intersection with color axes described in the Swain and Ballard's article Color Indexing (1991)
-This algorithm will create ‘bins histograms’  with the color axes as defined below :
-rg = red - green
-by = 2 * blue - red - green
-wb = red + green + blue
-The algorithm will beforehand create all necessary compact vector representing for each bins histograms.
-Then when used, the algorithm will create the ‘bin histogram’ vector of the image and compare it to each vector in the database.
-This algorithm differs from the normal intersection by using different color axes with fewer bins, and the pre-processing of the database before usage. 
-

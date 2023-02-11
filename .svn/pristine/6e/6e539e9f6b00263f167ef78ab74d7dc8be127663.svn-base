@@ -1,9 +1,0 @@
-image = None
-database = ./DefaultDB
-depth = 5
-bins = 255
-saver = None
-noadd = True
-incremental = False
-grey = False
-background_color = #554356
