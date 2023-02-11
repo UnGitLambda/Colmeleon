@@ -1,0 +1,77 @@
+# -*- coding: utf-8 -*-
+import copy
+import sys
+import os
+sys.path.insert(0, f"{os.path.abspath('..')}")
+from Histogram import ColorHistogram, GreyHistogram, Histogram
+while("../Histogram" in sys.path):
+    sys.path.remove("../Histogram")
+sys.path.insert(0, "../Database")
+from Histogram import Histogram
+while("../Database" in sys.path):
+    sys.path.remove("../Database")
+from Database import Database
+import matplotlib.pyplot as plt
+from Image import Image
+
+def intersection(histo1, histo2):
+    "This function calculates the intersection of two histograms"
+    assert type(histo1) is Histogram
+    assert type(histo2) is Histogram
+    histo=[]
+    bin= histo2.bins if histo1.bins>histo2.bins else histo1.bins
+    if isinstance(histo1, ColorHistogram) and isinstance(histo2, ColorHistogram):      
+        histo.append([])
+        histo.append([])
+        histo.append([])
+        for j in range(bin):
+            histo[0].append(min(histo1.histograms.get_red[j], histo2.histograms.get_red[j]))
+            histo[1].append(min(histo1.histograms.get_blue[j], histo2.histograms.get_blue[j]))
+            histo[2].append(min(histo1.histograms.get_green[j], histo2.histograms.get_green[j]))
+        res = copy.deepcopy(histo1)
+        res.histograms.set_red(histo[0])
+        res.histograms.set_blue(histo[1])
+        res.histograms.set_green(histo[2])
+        return res
+    if isinstance(histo1, GreyHistogram) and isinstance(histo2, GreyHistogram):
+        for j in range(bin):
+            histo.append(min(histo1.histograms.get_grey[j], histo2.histograms.get_grey[j]))
+        res = copy.deepcopy(histo1)
+        res.histograms.set_grey(histo)
+        return res
+
+def color_axes(histo) :
+    """
+    This function will create the color axes used in incremental intersection
+    """
+    assert type(histo) is Histogram
+    assert type(histo.histograms) is ColorHistogram
+
+    r = histo.histograms.get_red()
+    g = histo.histograms.get_green()
+    b = histo.histograms.get_blue()
+    rg = r - g
+    by = 2 * b - r -g
+    wb = r + g + b
+    return [rg,by,wb]
+    
+def incremental_intersection(histo1, histo2):
+    "This function calculates the intersection of two histograms, evaluating only the largest bins of the histograms"
+    assert type(histo1) is Histogram
+    assert type(histo2) is Histogram
+
+
+def retrieval(depth=15):
+    "This function calculates the closest matching images in the database. It returns as many images as the value of depth argument"
+    assert type(depth) is int
+
+def label_images(img):
+    "This function is a labelling of a given image according to potential(s) caracteristic(s)"
+    assert type(img) is Image
+
+def cluster(db):
+    "Groups the images in the database according to the labels that have been assigned to them"
+    assert type(db) is Database
+
+def _add_database():
+    "If the no_add argument of the application is false, this function is called then calls the add function of Database to add each image and its color histogram to the database"

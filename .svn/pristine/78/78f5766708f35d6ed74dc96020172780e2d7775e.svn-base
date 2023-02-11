@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Mar 14 17:09:44 2022
+
+@author : L3F1
+"""
+import Histogram
+import PIL
+import os
+
+class Image(PIL.Image.Image):
+    def __init__(self, file):
+        """
+        The path to the file is given as a String.
+        """
+        assert type(file) is str
+        assert file.endswith("png") or file.endswith("pdf") or file.endswith("jpg") or file.endswith("jpeg") or file.endswith("bmp") or file.endswith("gif")
+        assert os.path.exists(file)
+        self._img = Parser.parse(file)
+        self._histogram = Histogram(self)
+
+class Parser:
+    def _parse(file):
+        """
+        The path to the file is given as a String.
+        """
+        assert type(file) is str
+        assert file.endswith("png") or file.endswith("pdf") or file.endswith("jpg") or file.endswith("jpeg") or file.endswith("bmp") or file.endswith("gif")
+        assert os.path.exists(file)
+        return(PIL.Image.open(file))
+
+    def _scale_image(img):
+        assert type(img) is Image, f"Parser : the scaling function takes an image as argument and not {type(img)}"
+        scale = min(512/img.height,512/img.width)
+        return img.resize((int(scale*img.width), int(scale*img.height)))
+
+    def _color_constancy(hist):
+        assert type(hist) is Histogram
+        constancy = hist.redHistogram + hist.grennHistogram + hist.blueHistogram
+        tmpR = hist.redHistogram / constancy
+        return(tmpR)
+
+class Saver:
+    def __init__(self, directory):
+        """
+        The path to the direcrtory is given as a String.
+        """
+        assert type(directory) is str, f"Saver : the path to the directory must be given as a String, it can not be {type(directory)}"
+        if(not os.path.exists(directory)):
+            os.mkdir(directory)
+        assert os.path.isdir(directory), "Saver : The path given does not lead to a directory, please fix this issue before trying again."
+        self._directory = directory
+
+    def save(image):
+        assert type(image) is Image
+        image.save("{}.jpg".format(hash(image)))

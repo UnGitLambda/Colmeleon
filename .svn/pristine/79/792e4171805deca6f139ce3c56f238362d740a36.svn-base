@@ -1,0 +1,9 @@
+file = None
+database = None
+depth = 15
+bins = 255
+saver = None
+add = true
+incremental = true
+grey = false
+background_color = #554356

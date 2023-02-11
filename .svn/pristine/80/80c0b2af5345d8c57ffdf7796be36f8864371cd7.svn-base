@@ -1,0 +1,228 @@
+# -*- coding: utf-8 -*-
+"""
+@author: Eyal Cohen
+"""
+from argparse import ArgumentParser
+import pathlib
+import os
+from sys import argv
+import re
+from Image import Saver
+
+DEFAULT_CLI_OPTIONS = ["file = None\n","database = None\n","depth = 15\n",
+                       "bins = 15\n","saver = None\n","noadd = true\n",
+                       "incremental = true\n","grey = false\n",
+                       "background_color = #554356\n"]
+
+class CLI():
+    """
+    The CLI class represents the Command-Line Interface.
+    Meaning that it is instanciated when calling the program as a command line.
+    The syntax of the command line is :
+        --file, -f, the name of the file containing the image to process
+        --database, -db, the path to the database, represented by a directory
+        full of images, or full of directories full of images, etc. (Please
+        avoid to much depth, as it would slow the program), for more 
+        information see documentation of Database.py
+        --depth, -d, the number of images supposed to be returned by the 
+        retrieval
+        --bins, -b, the number of bins when creating an Histogram 
+        (see Histogram.py)
+        --saver,--save, -s, the directory in which the images from the 
+        retrieval will be saved
+        --noadd, if present will negate the operation of adding the image used
+        to the database
+        --incremental, if present will use the incremental intersection
+        algorithm instead of the
+        normal intersection
+        --grey, if present will use grey scale histograms instead color
+        histograms
+        --saveparams, if present will save the given parameters as default in
+        the CLI.init file
+        --reset, --clear, -c, if present the program will not consider any
+        other argument
+        and reset the file CLI.init to the default values 
+        (see DEFAULT_CLI_OPTIONS)
+    """
+    def __init__(self):
+        """
+        This init creates an object based on the current sys.argv and the 
+        values in the CLI.init file.
+        To see what each argument does, look at the documentation of the class.
+        The call to this method will only create the CLI object, for the
+        program to run, use the start method.
+        """
+        if not os.path.exists("./options"):
+            os.mkdir("./options")
+        if not os.path.exists("./options/CLI.init"):
+            file = open("./options/CLI.init", "w+")
+            file.writelines(DEFAULT_CLI_OPTIONS)
+            file.close()
+        self.default = open("./options/CLI.init", "r").read().split("\n")
+        parser = ArgumentParser()
+        self._add_arguments(parser)
+        self._args, self._unknown = parser.parse_known_args(argv)
+        self._unknown.remove(os.path.abspath("./CLI.py"))
+        
+    def start(self):
+        """
+        This method runs the program intended for Segmentation tool.
+        It will do, according to the given parameters actions in a sequence.
+        It will start by cheking the number of args present in argv and if
+        none are given, it will present the software to the user.
+        Then if the argument reset (or clear or c) is present it will not
+        consider any other argument and just reset the CLI.init file.
+        Then if the saveparams argument is used, it will save the given params
+        to the CLI.init file as new default arguments.
+        Finally it will make calls according to the given arguments in the CLI.
+        """
+        if len(argv) == 1:
+            print("Color histogram based segmentation tool\n"+
+                  "Version: 1.0\nauthors: Group L3F1\nMembers : "+
+                  "Mathilde Bonin, Eyal Cohen, Elona Lahmi, Jérémy Vong\n")
+            if self.default == DEFAULT_CLI_OPTIONS.split("\n"):
+                self.default.close()
+                return
+        if self._args.reset:
+            self.default.close()
+            self._reset()
+            return
+        if self._args.saveparams:
+            self._saveparams()
+            
+    def _reset(self):
+        with open("./options/CLI.init", "w+") as file:
+            file.writelines(DEFAULT_CLI_OPTIONS)
+        
+    def _add_arguments(self,parser) -> None:
+        """
+        Package accessible
+        """
+        parser.add_argument("--file", 
+                            "-f", 
+                            metavar = "<file>", 
+                            type = pathlib.Path, 
+                            default = self.parse_default_file())
+        parser.add_argument("--database", 
+                            "-db", 
+                            metavar = "<path>", 
+                            type = pathlib.Path, 
+                            default = self.parse_default_database())
+        parser.add_argument("--depth", 
+                            "-d", 
+                            type = int, 
+                            metavar = "<depth>", 
+                            default = self.parse_default_depth())
+        parser.add_argument("--bins", 
+                            "-b", 
+                            type = int, 
+                            metavar = "<bins number>", 
+                            default = self.parse_default_bins())
+        parser.add_argument("--saver",
+                            "--save", 
+                            "-s", 
+                            metavar = "<directory>", 
+                            type = Saver, 
+                            default = self.parse_default_saver())
+        parser.add_argument("--noadd", 
+                            action = "store_false", 
+                            default = self.parse_default_noadd())
+        parser.add_argument("--incremental", 
+                            action = "store_true", 
+                            default = self.parse_default_incremental())
+        parser.add_argument("--grey", 
+                            "-g", 
+                            action = "store_true", 
+                            default = self.parse_default_grey())
+        parser.add_argument("--saveparams", 
+                            "-sp", 
+                            action = "store_true", 
+                            default = False)
+        parser.add_argument("--reset", 
+                            "--clear", 
+                            "-c", 
+                            action = "store_true", 
+                            default = False)
+        
+    def parse_default_file(self) -> pathlib.Path:
+        for s in self.default:
+            if re.match(r"file", s):
+                if s.endswith("None"):
+                    return(None)
+                else:
+                    return(pathlib.Path(s[s.index("=")+1:]))
+        
+    def parse_default_database(self) -> pathlib.Path:
+        for s in self.default:
+            if re.match(r"database", s):
+                if s.endswith("None"):
+                    return(None)
+                else:
+                    return(pathlib.Path(s[s.index("=")+1:]))
+    
+    def parse_default_depth(self) -> int:
+        for s in self.default:
+            if re.match(r"depth", s):
+                if s.endswith("None"):
+                    return(None)
+                else:
+                    return(int(s[s.index("=")+1:]))
+    
+    def parse_default_bins(self) -> int:
+        for s in self.default:
+            if re.match(r"bins", s):
+                if s.endswith("None"):
+                    return(None)
+                else:
+                    return(int(s[s.index("=")+1:]))
+    
+    def parse_default_saver(self) -> Saver:
+        for s in self.default:
+            if re.match(r"saver", s):
+                if s.endswith("None"):
+                    return(None)
+                else:
+                    return(Saver(s[s.index("=")+1:]))
+    
+    def parse_default_noadd(self) -> bool:
+        for s in self.default:
+            if re.match(r"noadd", s):
+                if s.endswith("None"):
+                    return(None)
+                else:
+                    return(bool(s[s.index("=")+1:]))
+    
+    def parse_default_incremental(self) -> bool:
+        for s in self.default:
+            if re.match(r"incremental", s):
+                if s.endswith("None"):
+                    return(None)
+                else:
+                    return(bool(s[s.index("=")+1:]))
+    
+    def parse_default_grey(self) -> bool:
+        for s in self.default:
+            if re.match(r"grey", s):
+                if s.endswith("None"):
+                    return(None)
+                else:
+                    return(bool(s[s.index("=")+1:]))
+            
+    def _saveparams(self) -> None:
+        with open("./options/CLI.init", "r") as options:
+            data = options.read().split("\n")
+        data.remove("")
+        for i in range(len(data)):
+            try:
+                if data[i].startswith("background_color"):
+                    continue
+                info = data[i]
+                attr = info[:info.index("=")].strip()
+                data[i] = f"{attr} = {self._args.__getattribute__(attr)}\n"
+            except:
+                print("An error was raised when saving the parameters."+
+                      "The file CLI.init has been reseted. (--reset)"+
+                      "Sorry for the inconveniance.")
+                self._reset()
+        with open("./options/CLI.init", "w") as options:
+            options.writelines(data)

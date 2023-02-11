@@ -1,0 +1,5 @@
+@echo off
+if exist "./options/tosetup.txt" (
+	"python3" "./setup.py"&del ".\options\tosetup.txt"
+)
+start "python3" "./GUI.pyw"

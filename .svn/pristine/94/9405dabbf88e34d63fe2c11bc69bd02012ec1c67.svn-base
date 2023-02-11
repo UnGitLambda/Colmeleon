@@ -1,0 +1,7 @@
+The Intersection algorithm takes two histograms as input. 
+It compares the bins of each histogram and keeps only the smaller of the two. 
+It treats all cases : 
+- the two histograms are both color or gray
+- one histogram is color and the other is gray. 
+The algorithm works even if the two histograms are not of the same size. A ratio has been set up, the largest histogram is scaling up to the smallest.
+

@@ -1,0 +1,9 @@
+image = "./UnitTesting/Image/image1.jpg"
+database = None
+depth = 15
+bins = 15
+saver = None
+noadd = False
+incremental = False
+grey = False
+background_color = #554356

@@ -1,0 +1,12 @@
+file = UnitTfile = None
+datfile = Nonefile = Nonefile = None
+file = Nonefile = None
+databafile = None
+database = None
+depth = 15
+bins = 255
+saver = None
+add = true
+incremental = true
+grey = True
+background_color = #554356

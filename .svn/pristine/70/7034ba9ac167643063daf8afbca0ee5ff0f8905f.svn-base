@@ -1,0 +1,53 @@
+# -*- coding: utf-8 -*-
+"""
+@author: Eyal Cohen
+"""
+from argparse import ArgumentParser
+import pathlib
+import os
+
+class CLI():
+    def __init__(self, args):
+        if not os.path.exists("./options"):
+            os.mkdir("./options")
+        self.default = open("./options/CLI.init")
+        parser = ArgumentParser()
+        parser.add_argument("--file", "-f", metavar = "<file>", dest = self._file, type = pathlib.Path, default = self.parse_default_file())
+        parser.add_argument("--database", "-db", metavar = "<path>", dest = self._database, type = pathlib.Path, default = self.parse_default_database())
+        parser.add_argument("--depth", "-d", type = int, metavar = "<depth>", dest = self._depth, default = self.parse_default_depth())
+        parser.add_argument("--bins", "-b", type = int, metavar = "<bins number>", dest = self._bins, default = self.parse_default_bins())
+        parser.add_argument("--save", "-s", metavar = "<directory>", type = pathlib.Path, dest = self._saver, default = self.parse_default_saver())
+        parser.add_argument("--add", action = "store_true", dest = self._add, default = self.parse_default_add())
+        parser.add.argument("--incremental", action = "store_true", dest = self._incremental, default = self.parse_default_incremental())
+        parser.add_argument("--grey", "-g", dest = self._grey, action = "store_true", default = self.parse_default_grey())
+        parser.add_argument("--saveparams", "-sp", dest = self._saveparam, default = False)
+        parser.parse_args()
+        if self._saveparam:
+            self._saveparams()
+        
+    def parse_default_file(self):
+        pass
+        
+    def parse_default_database(self):
+        pass
+    
+    def parse_default_depth(self):
+        pass
+    
+    def parse_default_bins(self):
+        pass
+    
+    def parse_default_saver(self):
+        pass
+    
+    def parse_default_add(self):
+        pass
+    
+    def parse_default_incremental(self):
+        pass
+    
+    def parse_default_grey(self):
+        pass
+    
+    def _saveparams(self):
+        pass

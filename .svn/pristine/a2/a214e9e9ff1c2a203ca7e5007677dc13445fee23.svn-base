@@ -1,0 +1,400 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+from argparse import ArgumentParser, ArgumentTypeError
+import pathlib
+import os
+from sys import argv
+import re
+from Image import Saver,Image
+from Database import Database
+
+DEFAULT_CLI_OPTIONS = ["image = None\n","database = None\n","depth = 5\n",
+                       "bins = 255\n","saver = None\n","noadd = False\n",
+                       "incremental = False\n","grey = False\n",
+                       "background_color = #554356\n"]
+
+class CLI():
+    """
+    ===========================================================================
+    The CLI class represents the Command-Line Interface.
+    Meaning that it is instanciated when calling the program as a command line.
+    ===========================================================================
+    The syntax of the command line is:
+        --image,--file,-f, the name of the file containing the image to process
+        --database, -db, the path to the database, represented by a directory
+        full of images, or full of directories full of images, etc. (Please
+        avoid to much depth, as it would slow the program), for more 
+        information see documentation of Database.py
+        --depth, -d, the number of images supposed to be returned by the 
+        retrieval
+        --bins, -b, the number of bins when creating an Histogram 
+        (see Histogram.py)
+        --saver,--save, -s, the directory in which the images from the 
+        retrieval will be saved
+        --noadd, if present will negate the operation of adding the image used
+        to the database
+        --incremental, if present will use the incremental intersection
+        algorithm instead of the normal intersection
+        --grey, if present will use grey scale histograms instead color
+        histograms
+        --saveparams, if present will save the given parameters as default in
+        the CLI.init file
+        --reset, --clear, -c, if present the program will not consider any
+        other argument and reset the file CLI.init to the default values 
+        (see DEFAULT_CLI_OPTIONS)
+    """
+    def __init__(self, defaultFile = "CLI.init", defaultDir = "./options"):
+        """
+        =======================================================================
+        This init creates an object based on the current sys.argv and the 
+        values in the self.default file.
+        To see what each argument does, look at the documentation of the class.
+        The call to this method will only create the CLI object, for the
+        program to run, use the start method.
+        =======================================================================
+        """
+        if not os.path.exists(defaultDir):
+            os.mkdir(defaultDir)
+        default_path = defaultDir + "/" + defaultFile
+        if not os.path.exists(default_path):
+            with open(default_path, "w+") as file:
+                file.writelines(DEFAULT_CLI_OPTIONS)
+        with open(default_path, "r") as file:
+            self.default = file.read().split("\n")
+        if self.default[-1] == "":
+            self.default.remove("")
+        parser = ArgumentParser()
+        self._add_arguments(parser)
+        self._args, self._unknown = parser.parse_known_args(argv)
+        del(self._unknown[0])
+        
+    def start(self) -> None:
+        """
+        =======================================================================
+        This method runs the program intended for Segmentation tool.
+        It will do, according to the given parameters actions in a sequence.
+        It will start by cheking the number of args present in argv and if
+        none are given, it will present the software to the user.
+        Then if the argument reset (or clear or c) is present it will not
+        consider any other argument and just reset the CLI.init file.
+        Then if the saveparams argument is used, it will save the given params
+        to the CLI.init file as new default arguments.
+        Finally it will make calls according to the given arguments in the CLI.
+        =======================================================================
+        """
+        if len(argv) == 1:
+            print("Color histogram based segmentation tool\n"+
+                  "Version: 1.0\nauthors: Group L3F1\nMembers : "+
+                  "Mathilde Bonin, Eyal Cohen, Elona Lahmi, Jérémy Vong\n")
+            if self.default == DEFAULT_CLI_OPTIONS.split("\n"):
+                self.default.close()
+                return
+        if self._args.reset:
+            self.default.close()
+            self._reset()
+            return
+        if self._args.saveparams:
+            if not self._saveparams():
+                return
+        if self._args.image == None:
+            raise ArgumentTypeError("--image, --file or -f argument not "+
+                    "used but no default value found.\nPlease state "+
+                    "the file containing the image to process.")
+        if self._args.database == None:
+            raise ArgumentTypeError("--database or -db argument not "+
+                    "used but no default value found.\nPlease state "+
+                    "the directory containing the database for "+
+                    "retrieval.")
+    def _reset(self) -> None:
+        """
+        =======================================================================
+        This method is called when the --reset, --clear or -c argument is used.
+        It is also called when there is an error while saving the parameters.
+        It could be called whenever data is lost about the self.default file.
+        It erases anything in the file and writes the arguments stated as
+        default at the beggining of the file.
+        =======================================================================
+        """
+        with open("./options/CLI.init", "w+") as file:
+            file.writelines(DEFAULT_CLI_OPTIONS)
+        
+    def _add_arguments(self, parser) -> None:
+        """
+        =======================================================================
+        This method is called at the initialisation.
+        It initialise the different arguments in the parser from argparse.
+        It just uses the function argparse.ArgumentParser.add_argument.
+        For more information check the documentation of the argparse module.
+        =======================================================================
+        Arguments:
+            parser: argparse.ArgumentParser used to parse the command line
+        """
+        parser.add_argument("--image",
+                            "--file", 
+                            "-f", 
+                            metavar = "<file>", 
+                            type = Image, 
+                            default = self.parse_default_image(),
+                            help = "--image,--file,-f, the name of the file "+
+                            "containing the image to process")
+        parser.add_argument("--database", 
+                            "-db", 
+                            metavar = "<path>", 
+                            type = Database, 
+                            default = self.parse_default_database(),
+                            help = "--database, -db, the path to the database"+
+                            ", represented by a directory full of images, or"+
+                            " full of directories full of images, etc. (Pleas"+
+                            "e avoid to much depth, as it would slow the prog"+
+                            "ram), for more information see documentation of"+
+                            " Database.py")
+        parser.add_argument("--depth", 
+                            "-d", 
+                            type = int, 
+                            metavar = "<depth>", 
+                            default = self.parse_default_depth(),
+                            help = "--depth, -d, the number of images"+
+                            " supposed to be returned by the retrieval")
+        parser.add_argument("--bins", 
+                            "-b", 
+                            type = int, 
+                            metavar = "<bins number>", 
+                            default = self.parse_default_bins(),
+                            help = "--bins, -b, the number of bins when"+
+                            " creating an Histogram (see Histogram.py)")
+        parser.add_argument("--saver",
+                            "--save", 
+                            "-s", 
+                            metavar = "<directory>", 
+                            type = Saver, 
+                            default = self.parse_default_saver(),
+                            help = "--saver,--save, -s, the directory in wh"+
+                            "ich the images from the retrieval will be saved")
+        parser.add_argument("--noadd", 
+                            action = "store_false", 
+                            default = self.parse_default_noadd(),
+                            help = "--noadd, if present will negate the"+
+                            " operation of adding the image used to the"+
+                            " database")
+        parser.add_argument("--incremental", 
+                            action = "store_true", 
+                            default = self.parse_default_incremental(),
+                            help = "--incremental, if present will use the"+
+                            " incremental intersection algorithm instead of"+
+                            " the normal intersection")
+        parser.add_argument("--grey", 
+                            "-g", 
+                            action = "store_true", 
+                            default = self.parse_default_grey(),
+                            help = "--grey, if present will use grey scale"+
+                            " histograms instead color histograms")
+        parser.add_argument("--saveparams", 
+                            "-sp", 
+                            action = "store_true", 
+                            default = False,
+                            help = "--saveparams, if present will save the "+
+                            "given parameters as default in the CLI.init file")
+        parser.add_argument("--reset", 
+                            "--clear", 
+                            "-c", 
+                            action = "store_true", 
+                            default = False,
+                            help = "--reset, --clear, -c, if present the"+
+                            " program will not consider any other argument "+
+                            "and reset the file CLI.init to the default value"+
+                            "s (see DEFAULT_CLI_OPTIONS)")
+        
+    def parse_default_image(self) -> Image:
+        """
+        =======================================================================
+        This method is the parser for default value of the attribute image.
+        It is called when the --image, --file or -f argument is not used.
+        It finds the default value in the self.default file.
+        =======================================================================
+        Returns:
+            Image created using the path stated in the self.default file.
+            (None is the default value at initialisation of the Application)
+        Raises:
+            argparse.ArgumentError if the default value is None.
+        """
+        for s in self.default:
+            if s.startswith("image"):
+                if s.endswith("None"):
+                    return(None)
+                else:
+                    return(Image(s[s.index("=")+1:].strip().replace('"','')))
+        return(None)
+        
+    def parse_default_database(self) -> pathlib.Path:
+        """
+        =======================================================================
+        This method is the parser for default value of the attribute database.
+        It is called when the --database or -db argument is not used.
+        It finds the default value in the self.default file.
+        =======================================================================
+        Returns:
+            Database created using the path stated in the self.default file.
+            (None is the default value at initialisation of the Application)
+        Raises:
+            argparse.ArgumentError if the default value is None.
+        """
+        for s in self.default:
+            if s.startswith("database"):
+                if s.endswith("None"):
+                    return(None)
+                else:
+                    return(Database(s[s.index("=")+1:].strip().replace('"',
+                                                                       '')))
+        return(None)
+    
+    def parse_default_depth(self) -> int:
+        """
+        =======================================================================
+        This method is the parser for default value of the attribute database.
+        It is called when the --depth or -d argument is not used.
+        It finds the default value in the self.default file.
+        =======================================================================
+        Returns:
+            Integer stated in the self.default file.
+            5 if the default value is None 
+            (5 is the default value at initialisation of the Application)
+        """
+        for s in self.default:
+            if s.startswith("depth"):
+                if s.endswith("None"):
+                    return(5)
+                else:
+                    return(int(s[s.index("=")+1:].strip().replace('"','')))
+        return(15)
+    
+    def parse_default_bins(self) -> int:
+        """
+        =======================================================================
+        This method is the parser for default value of the attribute database.
+        It is called when the --database or -db argument is not used.
+        It finds the default value in the self.default file.
+        =======================================================================
+        Returns:
+            Integer stated in the self.default file.
+            255 if the default value is None 
+            (255 is the default value at initialisation of the Application)
+        """
+        for s in self.default:
+            if s.startswith("bins"):
+                if s.endswith("None"):
+                    return(255)
+                else:
+                    return(int(s[s.index("=")+1:].strip().replace('"','')))
+        return(255)
+    
+    def parse_default_saver(self) -> Saver:
+        """
+        =======================================================================
+        This method is the parser for default value of the attribute saver.
+        It is called when the --saver, --save or -s argument is not used.
+        It finds the default value in the self.default file.
+        =======================================================================
+        Returns:
+            Saver created using the path stated in the self.default file.
+            None if the default value is None 
+            (None is the default value at initialisation of the Application)
+        """
+        for s in self.default:
+            if s.startswith("saver"):
+                if s.endswith("None"):
+                    return(None)
+                else:
+                    return(Saver(s[s.index("=")+1:].strip().replace('"','')))
+        return(None)
+    
+    def parse_default_noadd(self) -> bool:
+        """
+        =======================================================================
+        This method is the parser for default value of the attribute noadd.
+        It is called when the --noadd argument is not used.
+        It finds the default value in the self.default file.
+        =======================================================================
+        Returns:
+            Boolean based on the information in the self.default file.
+            (False is the default value at initialisation of the Application)
+        """
+        for s in self.default:
+            if s.startswith("noadd"):
+                if s.endswith("None"):
+                    return(False)
+                else:
+                    return({s[s.index("=")+1:].strip().replace('"','').lower()
+                            =="true"}.pop())
+        return(False)
+    
+    def parse_default_incremental(self) -> bool:
+        """
+        =======================================================================
+        This method is the parser for default value of the attribute
+        incremental.
+        It is called when the --incremental argument is not used.
+        It finds the default value in the self.default file.
+        =======================================================================
+        Returns:
+            Boolean based on the information in the self.default file.
+            (False is the default value at initialisation of the Application)
+        """
+        for s in self.default:
+            if s.startswith("incremental"):
+                if s.endswith("None"):
+                    return(False)
+                else:
+                    return({s[s.index("=")+1:].strip().replace('"','').lower()
+                            =="true"}.pop())
+        return(False)
+    
+    def parse_default_grey(self) -> bool:
+        """
+        =======================================================================
+        This method is the parser for default value of the attribute grey.
+        It is called when the --grey argument is not used.
+        It finds the default value in the self.default file.
+        =======================================================================
+        Returns:
+            Boolean based on the information in the self.default file.
+            (False is the default value at initialisation of the Application)
+        """
+        for s in self.default:
+            if s.startswith("grey"):
+                if s.endswith("None"):
+                    return(False)
+                else:
+                    return({s[s.index("=")+1:].strip().replace('"','').lower()
+                            =="true"}.pop())
+        return(False)
+            
+    def _saveparams(self) -> bool:
+        """
+        =======================================================================
+        This method is called when the argument --saveparams or -sp is used.
+        It saves the given parameters as default in the self.default file.
+        =======================================================================
+        Returns:
+            True if everything went well
+            False if not
+        """
+        with open("./options/CLI.init", "r") as options:
+            data = options.read().split("\n")
+        while("" in data):
+            data.remove("")
+        for i in range(len(data)):
+            try:
+                if data[i].startswith("background_color"):
+                    continue
+                info = data[i]
+                attr = info[:info.index("=")].strip()
+                data[i] = f"{attr} = {self._args.__getattribute__(attr)}\n"
+            except:
+                print("An error was raised when saving the parameters."+
+                      "The file CLI.init has been reseted. (--reset)"+
+                      "Sorry for the inconveniance.")
+                self._reset()
+                return(False)
+        with open("./options/CLI.init", "w") as options:
+            options.writelines(data)
+        return(True)

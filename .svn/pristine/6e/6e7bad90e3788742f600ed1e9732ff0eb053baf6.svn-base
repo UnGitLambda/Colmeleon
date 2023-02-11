@@ -1,0 +1,9 @@
+image = None
+database = None
+depth = 15
+bins = 15
+saver = None
+noadd = true
+incremental = true
+grey = false
+background_color = #554356

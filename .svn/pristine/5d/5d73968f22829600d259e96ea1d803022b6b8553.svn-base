@@ -1,0 +1,293 @@
+# -*- coding: utf-8 -*-
+"""
+@author: Eyal Cohen
+"""
+
+try:
+    import sys
+except Exception as e:
+    print("\nError message :" + str(e) + "\n")
+    print("It seems that the module 'sys' is not installed on your computer (or not accessible via PATH), please install it for PAFtoAF and PAFtoAFGUI to work properly.\n")
+    print("You should be able to install it using the command :\npython -m pip install sys")
+    exit()
+
+try:
+    import ctypes
+except Exception as e:
+    print("\nError message :" + str(e) + "\n")
+    print("It seems that the module 'ctypes' is not installed on your computer (or not accessible via PATH), please install it for PAFtoAFcheckup to work properly.\n")
+    print("You should be able to install it using the command :\npython -m pip install ctypes")
+    sys.exit()
+
+def Mbox(title, text, style):
+    return ctypes.windll.user32.MessageBoxW(0, text, title, style)
+
+from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("TkAgg")
+import os
+import numpy as np
+import tkinter as tk
+from tkinter import filedialog
+from tkinter import DISABLED, NORMAL
+from tkinter import TOP, LEFT
+from PIL import ImageTk#, Image
+import tkinterdnd2 as tkd
+import CorruptedException as ce
+from Image import Parser, Image, Saver
+
+#import platform
+
+#    system = platform.system()
+#    if system not in ["Windows", "Linux", "Darwin"]:
+#        root = tk.Tk()
+#        root.withdraw()
+#        msg = tk.messagebox.showinfo("Error", "It looks like you system is not supported.\nSupported systems : Windows, Linux, Darwin(MacOS)\nYour system : {}".format(system))
+#        while msg != "ok":
+#            continue
+#        sys.exit()
+
+if sys.version_info < (3,0):
+    print("This program runs under python 3 or more. To use it please get you version of python up to date.")
+    Mbox("Errors", "This program runs under python 3 or more. To use it please get you version of python up to date.")
+
+class FrameDnD(tk.Frame):
+    def _check_drop(event):
+        file = str(event.data).replace("{", "").replace("}", "")
+        assert file.endswith("png") or file.endswith("pdf") or file.endswith("jpg") or file.endswith("jpeg") or file.endswith("bmp") or file.endswith("gif")
+        try:
+            with Image.Image(file) as img:
+                img.verify()
+            return()
+        except:
+            raise ce.CorruptedFileException("The file given seems corrupted.")
+
+class CanvasDnD(tk.Canvas):
+    def load_image(self, event):
+        self.image = self.load_image_file((str(event.data).replace("{", "").replace("}", "")));
+
+    
+    def load_image_file(self, Sfile):
+        self.image = Image(Sfile)
+        img = Image(Sfile)
+        Parser.scale_image(img)
+        self.tkImg = ImageTk.PhotoImage(img._img)
+        self.config(height = self.tkImg.height(), width = self.tkImg.width())
+        self.create_image(self.tkImg.width(), self.tkImg.height(), image = self.tkImg, anchor = tk.SE)
+    
+    def load_image_selection(self):
+        """
+        This method is the one used by the button open (for the files) on the GUI.
+        It opens a window allowing the user to browse its file and then reads and load the selected file.
+        """
+        typeslist = [("IMG file", ".img"), ("JPG file", ".jpg"), ("PNG file", ".png"), ("PDF file", ".pdf"), ("*", ".*")]
+        Sfile = filedialog.askopenfilename(title = "Sélectionnez un fichier ..." , filetypes = typeslist)
+        self.load_image_file(Sfile)
+        
+class HelpWindow():
+    def __init__(self, app):
+        assert isinstance(app, Application) 
+        self.application = app
+        self.helpWindow = tk.Tk()
+        self.helpWindow.title("help")
+        self.helpWindow.geometry("686x480")
+        self.helpWindow.config(bg = "#dddddd")
+        self.help_frame = tk.Frame(self.helpWindow, height = 30, width = 86)
+        self.help_frame.pack()
+        self.accepted_help_text = tk.Text(self.help_frame, height = 4, width = 84)
+        self.accepted_help_text.pack(side = TOP)
+        self.help_text = tk.Text(self.help_frame, height = 28, width = 84, state = DISABLED)
+        self.buttonsframe = tk.Frame(self.help_frame, height = 5, width = 84)
+        self.buttonsframe.pack(side = TOP)
+        self.histButton = tk.Button(self.buttonsframe, text = "Histogram", bg = "white", activebackground = "red", command = self.show_retrieval)
+        self.segButton = tk.Button(self.buttonsframe, text = "Segmentation", bg = "white", activebackground = "red", command = self.show_segmentation)
+        self.retrButton = tk.Button(self.buttonsframe, text = "Retrieval", bg = "white", activebackground = "red", command = self.show_retrieval)
+        self.labellingButton = tk.Button(self.buttonsframe, text = "Labelling", bg = "white", activebackground = "red", command = self.show_retrieval)
+        self.clusteringButton = tk.Button(self.buttonsframe, text = "Clustering", bg = "white", activebackground = "red", command = self.show_retrieval)
+        self.contextButton = tk.Button(self.buttonsframe, text = "Context", bg = "white", activebackground = "red", command = self.show_retrieval)
+        self.constancyButton = tk.Button(self.buttonsframe, text = "Color Constancy", bg = "white", activebackground = "red", command = self.show_retrieval)
+        self.algoButton = tk.Button(self.buttonsframe, text = "Algorithms", bg = "white", activebackground = "red", command = self.show_retrieval)
+        self.histButton.pack(side = LEFT)
+        self.segButton.pack(side = LEFT)
+        self.retrButton.pack(side = LEFT)
+        self.labellingButton.pack(side = LEFT)
+        self.clusteringButton.pack(side = LEFT)
+        self.contextButton.pack(side = LEFT)
+        self.constancyButton.pack(side = LEFT)
+        self.algoButton.pack(side = LEFT)
+        self.help_text.pack(side = TOP)
+        self.accepted_help_text.insert("end", "The help about technical terms about :\nSegmentation of an image based on a compact representation of the color histogram.\n")
+        self.accepted_help_text["state"] = DISABLED
+        self.helpWindow.protocol("WM_DELETE_WINDOW", self.on_closing_help)
+    def show_segmentation(self):
+        self.help_text["state"] = NORMAL
+        self.help_text.delete("1.0", "end")
+        self.help_text.insert("end", "\nThe segmentation consists in separating differents regions of the image, based\non characteristics.\nThis process can be interesting in robotic since robots needing to understand\ntheir environnement may use this kind of algorithm to apprehend obstacles.\n")
+        self.segButton["bg"] = "red"
+        self.segButton["state"] = DISABLED
+        self.retrButton["bg"] = "white"
+        self.retrButton["state"] = NORMAL
+        self.help_text["state"] = DISABLED
+    def show_retrieval(self):
+        self.help_text["state"] = NORMAL
+        self.help_text.delete("1.0", "end")
+        self.help_text.insert("end", "\nThe retrieval consists in getting items from\nthe database.\n")
+        self.retrButton["bg"] = "red"
+        self.retrButton["state"] = DISABLED
+        self.segButton["bg"] = "white"
+        self.segButton["state"] = NORMAL
+        self.help_text["state"] = DISABLED
+    def on_closing_help(self):
+        self.application.helpWindow = None
+        self.application.helpOpen = False
+        self.helpWindow.destroy()
+        del(self)
+    def lift(self):
+        self.helpWindow.lift()
+        self.helpWindow.focus_force()
+        self.helpWindow.grab_set()
+        self.helpWindow.grab_release()
+        
+class Application:
+    def __init__(self):
+        self.tmpPath = "temp"
+        while os.path.exists(self.tmpPath):
+            self.tmpPath += "temp"
+        os.mkdir(self.tmpPath)
+        
+        window = tkd.TkinterDnD.Tk()
+        window.title('Application')
+        window.geometry('750x800')
+        window.config(bg='#554356')
+        
+        ws = tk.Frame(window)
+        ws.pack(side = TOP)
+        
+        frame = tk.Frame(ws, height = 60, width = 82)
+        frame.pack(side = TOP)
+        
+        optionFrame = tk.Frame(frame, height = 10, width = 40)
+        optionFrame.pack(side = TOP)
+        
+        frameDnD = FrameDnD(frame, height = 23, width = 41)
+        frameDnD.pack(side = LEFT)
+        
+        computeFrame = tk.Frame(ws)
+        computeFrame.pack(side = TOP)
+        
+        window.lift()
+        window.focus_force()
+        window.grab_set()
+        window.grab_release()
+        
+        
+        self.image = None
+        self.figure = Figure()
+        self.helpOpen = False
+        
+        def on_closing():
+           """
+           This is the closing protocol, it is activated on the closing of the main window.
+           Its purpose is to delete every temporary file that has been created during the session and then to destroy the window.
+           """
+           if self.helpOpen:
+               self.helpWindow.on_closing_help()
+           for file in os.scandir(self.tmpPath):
+               os.remove(file)
+           os.rmdir(self.tmpPath)
+           window.destroy()
+           window.quit()
+        
+        
+        #TODO resize dynamically the canvas size to perfectly fit the image
+        #TODO resize the window and add a scrollbar to fit the canvas
+            
+        def show_help():
+            if(self.helpOpen):
+                self.helpWindow.lift()
+            else:
+                self.helpOpen = True
+                self.helpWindow = HelpWindow(self)
+                self.helpWindow.lift()
+        
+        def save():
+            return()
+        
+        def compute():
+            return()
+        
+        def show_hist1():
+            if hist1_check_value.get() == 1:
+                if self.figure == Figure():
+                    self.figure = plt.figure(dpi = 100)
+                plt.clf()
+                
+                img_array = 255-np.asarray(self.image)
+                plt.hist(img_array[:,:,0].flatten()*255,range=[0,255], color = "red", alpha = 0.5, bins = 256)
+                plt.hist(img_array[:,:,1].flatten()*255,range=[0,255], color = "green", alpha = 0.5, bins = 256)
+                plt.hist(img_array[:,:,2].flatten()*255,range=[0,255], color = "blue", alpha = 0.5, bins = 256)
+                plt.show()
+                plt.draw()    
+                
+                plt.rcParams["figure.figsize"] = (10,9)
+                
+                plt.savefig(self.tmpPath + "/Hist1.png", format="PNG")
+            else:
+                if os.path.exists(self.tmpPath + "/Hist1.png"):
+                    os.remove(self.tmpPath + "/Hist1.png")
+                plt.close()
+        
+        canvas = CanvasDnD(frameDnD, height=250, width=500)
+        canvas.grid(row = 1, column = 0, rowspan = 3, columnspan = 6)
+        canvas.drop_target_register(tkd.DND_FILES)
+        canvas.dnd_bind('<<Drop>>', canvas.load_image)
+    #    textarea.insert("end", "\n\nPlease drag a file here.\n\nOr click the 'open' button under this\nbox to select a file.\n\nAccepted format is jpg.")
+        
+    #    sbv = tk.Scrollbar(frameDnD, orient=tk.VERTICAL)
+    #    sbv.grid(row = 1, column = 7, rowspan = 6, columnspan = 6, sticky = tk.NS)
+        
+    #    textarea.configure(yscrollcommand=sbv.set)
+    #    sbv.config(command=textarea.yview)
+        
+        open_button = tk.Button(frameDnD, activebackground = "blue", bg = "white", text = "open", command = canvas.load_image_selection)
+        open_button.grid(row = 7, column = 0, columnspan = 6)
+        
+        hist1_check_value = tk.IntVar()
+        hist1_check = tk.Checkbutton(frameDnD, disabledforeground = "yellow", text = "generate the graph", variable = hist1_check_value, command = show_hist1, onvalue = 1, state = DISABLED)
+        hist1_check.grid(row = 7, column = 0)
+        
+        help_option = tk.Button(optionFrame, activebackground = "red", bg = "white", text = "Help", command = show_help)
+        help_option.pack(side = LEFT)
+        
+        save_option = tk.Button(optionFrame, activebackground = "blue", bg = "white", text = "save", command = save)
+        save_option.pack(side = LEFT)
+        
+    #    semantic_value = tk.StringVar()
+    #    semantic_box = ttk.Combobox(taskframe, values = ["CO","PR","ST","SST","STG","GR","ID"], state = DISABLED, textvariable = semantic_value)
+    #    semantic_box.bind("<<ComboboxSelected>>", semantic_selection)
+    #    semantic_box.grid(row = 1, column = 2)
+        
+    #    sbvR = tk.Scrollbar(frameReduction, orient=tk.VERTICAL)
+    #    sbvR.grid(row = 1, column = 7, rowspan = 6, columnspan = 6, sticky = tk.NS)
+        
+    #    textareaReduc.configure(yscrollcommand = sbvR.set)
+    #    sbvR.config(command = textareaReduc.yview)
+        
+        compute_button = tk.Button(computeFrame, height = 8, width = 68, text = "COMPUTE", activebackground = "yellow", bg = "blue", command = compute)
+        compute_button.pack(side = TOP)
+
+        result_canvas = CanvasDnD(computeFrame, height = 240, width = 500)
+        result_canvas.pack(side = TOP)
+        result_canvas.drop_target_register(tkd.DND_FILES)
+        result_canvas.dnd_bind('<<Drop>>', result_canvas.load_image)
+        
+        window.protocol("WM_DELETE_WINDOW", on_closing)
+        
+        window.title("Segmentation tool")
+        
+        window.mainloop()
+
+if __name__ == "__main__":
+    a = Application()
+    del(a)

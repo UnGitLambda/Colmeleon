@@ -1,0 +1,49 @@
+import unittest as ut
+from Image import Image
+from Algorithm import *
+from Histogram import *
+import csv
+import os
+
+class TestAlgorithm(ut.TestCase):
+    """
+    Unit testing class for the module Image.
+    """
+    #fetch images and related infos in directory unittest/Image
+    expectations = ()
+    data1 = [0,1,2,3,4,5]
+    data1b = set([0,1,2,3,4,5])
+    data1c = np.array([0,1,2,3,4,5])
+    data2 = [0,1,2,3,4,6]
+    data3 = [10,20,30,40,50]
+
+    def test_jaccard_dist(self):
+        """
+        Test the jaccard distance function
+        """
+        self.assertIsInstance(jaccard_dist(self.data1,self.data1), float)
+        self.assertIsInstance(jaccard_dist(self.data1b,self.data1c), float)
+        self.assertEqual(jaccard_dist(self.data1,self.data1), 0)
+        self.assertEqual(jaccard_dist(self.data1,self.data2), 0.2857)
+        self.assertEqual(jaccard_dist(self.data1,self.data3), 1)
+
+
+    def test_euclidean_dist(self):
+        """
+        Test the euclidean distance function
+        """
+        self.assertIsInstance(euclidean_dist(self.data1,self.data1), float)
+        self.assertIsInstance(euclidean_dist(self.data1b,self.data1c), float)
+        self.assertEqual(euclidean_dist(self.data1,self.data1), 0)
+        #TODO calculate correct value
+        #self.assertEqual(euclidean_dist(self.data1,self.data2), 0 )
+        #self.assertEqual(euclidean_dist(self.data1,self.data3), 0 )
+        
+if __name__ == '__main__':
+    ut.main()
+        
+        
+        
+        
+        
+        

@@ -1,0 +1,448 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import copy
+import sys
+import os
+import math
+from xmlrpc.client import Boolean
+from Histogram import ColorHistogram, GreyHistogram, Histogram
+from Database import Database
+import matplotlib.pyplot as plt
+from Image import Image
+import numpy as np
+import pickle
+import bisect
+import matplotlib
+
+def jaccard_dist(data1, data2) -> float :
+    """
+    ===========================================================================
+    This function calculate the Jaccard distance of 2 sets
+    ===========================================================================
+    Argument : 
+        data1 : a set of data
+        data2 : a set of data
+    Return :
+        The Jaccard distance of the two given set
+    Raises :
+        TypeError when datas in argument can't be converted to a set data
+    """
+
+    if isinstance(data1, list) or isinstance(data1, np.ndarray) :
+        data1 = set(data1)
+    if isinstance(data2, list) or isinstance(data1, np.ndarray) :
+        data2 = set(data2)
+    
+    if not isinstance(data1, set) and not isinstance(data2, set) :
+        raise TypeError("Datas in argument aren't of type list or np.ndarray,"+
+                        " It is not possible to calculate the jaccard "+
+                        "distance if data can't be converted to set.")
+    intersect = set.intersection(data1,data2)
+    jaccard_index = len(intersect) / (len(data1)+len(data2)-len(intersect))
+
+    #jaccard_distance = 1 - jaccard_index
+    return np.around(1 - jaccard_index,decimals = 4)
+
+
+def euclidean_dist(data1, data2) -> float :
+    """
+    ===========================================================================
+    This function calculate the Euclidean distance of 2 sets
+    ===========================================================================
+    Argument : 
+        data1 : a set of data
+        data2 : a set of data
+    Return :
+        The Euclidean distance of the two given set
+    Raises :
+        TypeError when datas in argument can't be converted to np.ndarray
+    """
+    if isinstance(data1, list) or isinstance(data1, set) :
+        data1 = np.array(list(data1))
+    if isinstance(data2, list) or isinstance(data2, set) :
+        data2 = np.array(list(data2))
+
+    if isinstance(data1, np.ndarray) and isinstance(data2, np.ndarray) :
+        return np.around(np.sqrt(np.sum(((data1 - data2) ** 2))),decimals = 4)
+    else :
+        raise TypeError("Datas in argument aren't of type list or np.ndarray,"+
+                        " It is not possible to calculate the euclidean "+
+                        "distance in this case.")
+
+def intersection(histo_image, histo_model)-> list:
+    """
+    ===========================================================================
+    This function calculates the intersection of two histograms.
+    It takes the minimum of each composants (red, green blue and grey) between 
+    the model histogram and the image given. 
+    ===========================================================================
+    Arguments : 
+        histo_image : the Histogram object of the image
+        histo_model : the Histogram object of the model
+    Returns: the histogram data of the intersection of the two histograms.
+    
+    """
+    assert type(histo_image) is Histogram
+    assert type(histo_model) is Histogram
+    matplotlib.use("Agg")
+    histo=[]
+
+    histo_min = {histo_image if histo_image.bins <= histo_model.bins 
+                 else histo_model}.pop()
+    histo_max = {histo_image if histo_image.bins >= histo_model.bins 
+                 else histo_model}.pop()
+
+    ratio = histo_min.bins/histo_max.bins
+
+    if(isinstance(histo_image.histograms, ColorHistogram) 
+        and isinstance(histo_model.histograms, ColorHistogram)):      
+        histo.append([])
+        histo.append([])
+        histo.append([])
+        
+        for j in range(histo_min.bins):
+            if (j%2) == 0:
+                ratio=math.ceil(ratio)
+            else:
+                ratio=math.floor(ratio)
+            red = sum(histo_max.histograms.get_red()[ratio*j : ratio*(j+1)])
+            blue = sum(histo_max.histograms.get_blue()[ratio*j : ratio*(j+1)])
+            green =sum(histo_max.histograms.get_green()[ratio*j : ratio*(j+1)])
+            histo[0].append(int(min(histo_min.histograms.get_red()[j], red)))
+            histo[1].append(int(min(histo_min.histograms.get_blue()[j], blue)))
+            histo[2].append(int(min(histo_min.histograms.get_green()[j],
+                                    green))) 
+        return histo
+    if(isinstance(histo_image.histograms, GreyHistogram) 
+       and isinstance(histo_model.histograms, GreyHistogram)):
+        for j in range(histo_min.bins):
+            if (j%2)==0:
+                ratio=math.ceil(ratio)
+            else: 
+                ratio=math.floor(ratio)
+            grey = sum(histo_max.histograms.get_grey()[ratio*j : ratio*(j+1)])
+            histo.append(int(min(histo_min.histograms.get_grey()[j],grey)))
+
+        return histo
+    if(isinstance(histo_image.histograms, ColorHistogram) 
+       and isinstance(histo_model.histograms, GreyHistogram)):
+        his = Histogram(histo_image.image, histo_image.bins, True)
+        if histo_image.bins == histo_min.bins:
+            for j in range(histo_min.bins):
+                if (j%2)==0:
+                    ratio=math.ceil(ratio)
+                else: 
+                    ratio=math.floor(ratio)
+                grey = histo_model.histograms.get_grey()[ratio*j:ratio*(j+1)]
+                histo.append(int(min(his.histograms.get_grey()[j], grey)))
+        else:
+            for j in range(histo_min.bins):
+                if (j%2)==0:
+                    ratio=math.ceil(ratio)
+                else: 
+                    ratio=math.floor(ratio)
+                    grey = his.histograms.get_grey()[ratio*j : ratio*(j+1)]
+                histo.append(int(min(histo_min.histograms.get_grey()[j],grey)))
+        return histo
+   
+
+def match_value(histo_image, histo_model, function = intersection) -> float:
+    """
+    ===========================================================================
+    This function calculates the percentage of correspondence between 
+    two histograms. 
+    It uses a function that represents the algorithm used.
+    ===========================================================================
+    Arguments : 
+        histo_image : the Histogram object of the image
+        histo_model : the Histogram object of the model
+        function : the algorithme used for the intersection.
+                   By default,it is the intersection function 
+    Return : The value of correspondence between two histograms.
+    """
+    assert isinstance(histo_image, Histogram)
+    assert isinstance(histo_model, Histogram)
+    matplotlib.use("Agg")
+
+    histo = function(histo_image, histo_model)
+    pixels = {sum(histo_model.histograms.get_red() 
+                  if isinstance(histo_model.histograms, ColorHistogram) 
+                  else histo_model.histograms.get_grey())}.pop()
+    r=0
+    b=0
+    g=0
+    grey=0
+    if(isinstance(histo_image.histograms, ColorHistogram) 
+       and isinstance(histo_model.histograms, ColorHistogram)):
+        for i in range(histo_model.bins):
+            r+=histo[0][i]
+            b+=histo[1][i]
+            g+=histo[2][i]
+        value = min([r/pixels,b/pixels,g/pixels])
+    else: 
+        for i in range(histo_model.bins):
+            grey = histo[i] + grey
+        value = grey/pixels
+    return value*100
+
+
+def color_axes(histo, rg_bins_number = 16, by_bins_number = 16, 
+                wb_bins_number = 8) ->np.ndarray:
+    """
+    ===========================================================================
+    This function will create the color axes used in incremental intersection
+    ===========================================================================
+    Argument : 
+        histo : The concerned histogram
+        rg_bins : The number of bins for the rg color axe (default : 16)
+        by_bins : The number of bins for the by color axe (default : 16)
+        wb_bins : The number of bins for the wb color axe (default :  8)
+    Return :
+        the keys of rg,by and wb values concatenated into a single vector
+        (the key of a value is the fraction of the total number of pixels)
+    Raises :
+        Exception error if the histogram in input doesn't possess a 
+            ColorHistogram or a GreyHistogram
+    """
+    assert type(histo) is Histogram
+    matplotlib.use("Agg")
+
+    if isinstance(histo.histograms, ColorHistogram) :
+        r = histo.image_array[:,:,0]
+        g = histo.image_array[:,:,1]
+        b = histo.image_array[:,:,2]
+    elif isinstance(histo.histograms, GreyHistogram) :
+        r = histo.histograms.grey[:,:]
+        g,b = r,r
+    else :
+        raise Exception("The histogram in argument doesn't have a "+
+                        "ColorHistogram nor a GreyHistogram, so it isn't "+
+                        "possible to create the associated bins histogram")
+
+    rg = r - g
+    by = 2 * b - r -g
+    wb = r + g + b
+    rg_bins = plt.hist(rg.flatten(), bins = rg_bins_number, range = [0,255])
+    by_bins = plt.hist(by.flatten(), bins = by_bins_number, range = [0,255])
+    wb_bins = plt.hist(wb.flatten(), bins = wb_bins_number, range = [0,255])
+
+    #directly applying key which is the fraction of the total number of pixels
+    total_pixel = len(histo.image_array[0]) * len(histo.image_array)
+    return np.concatenate([rg_bins[0],by_bins[0],wb_bins[0]])/total_pixel
+
+def offline(database) -> None:
+    """
+    ===========================================================================
+    This function will create the histograms's bins of each image in
+    the database, then save the sorted vector
+    ===========================================================================
+    Argument : 
+        database : the Database containing all the pictures used as models
+    Return :
+        None
+    """
+    assert type(database) is Database
+    matplotlib.use("Agg")
+    # ---- Off-line phase ----
+
+    #Check in database if all histograms are created
+    #If not create it
+    database._calculate_histograms()
+
+    # -- Create the vectors -- 
+
+    #Prepare the directory where the bins_histograms are saved
+    dir = os.path.dirname(database)
+    path = os.path.join(dir,'bins_histogram' ) 
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    histos = database.histograms()
+    for model in histos :
+        histo = model[1]
+        image_name = model[0].split("\\")[-1] #retrieve original image name
+        tmp_vector = color_axes(histo)
+
+        #Pickling/saving the compressed vector in the same folder as database
+        with open(path+"\\"+image_name, "wb") as fp:   
+            pickle.dump(tmp_vector, fp)
+    
+
+def increment_intersect(image_vector, database, bins_to_compare = 10) -> list:
+    """
+    ===========================================================================
+    This function apply the incremental intersection of a histogram image 
+    to a set of already calculated vector
+    ===========================================================================
+    Arguments : 
+        image_vector : the compressed vector of the rg,by, wb planes of color
+        database : the Database with all the calculated histograms inside
+        bins_to_compare : the number of bins to compare.
+                          By default, it's equal to 10.
+    Return : 
+        A list containing all matched histograms from database
+    """
+    assert type(image_vector) is np.ndarray
+    assert type(database) is Database
+    assert type(bins_to_compare) is int
+
+    dir = os.path.dirname(database)
+    path = os.path.join(dir,'bins_histogram' ) 
+    assert os.path.exists(path)
+    matplotlib.use("Agg")
+
+    # ---- On-line phase ----
+
+    matched = []
+    model_histograms = database.histograms()[1]
+
+    number_to_compare = {bins_to_compare
+                         if bins_to_compare <= len(image_vector[0])
+                         else len(image_vector[0])}
+    for hist in model_histograms:
+
+        #Get original image name of the model histogram
+        image_name = hist[0].split("\\")[-1]
+        #Retrieve the vector (rg+by+wb)
+        tmp_vector = pickle.load(path+"\""+image_name)
+
+        for bin in range(number_to_compare) : 
+
+            current_bin = image_vector[0][-bin]
+            index =  image_vector[1][-bin]#index  of the current bin
+
+            #Match current_bin with bin of model with same index if key is 
+            #larger than current_bin
+
+            #TODO sub function this part so it doesn't repeat when already added
+            if current_bin <= tmp_vector[index] :
+                if hist not in matched : 
+                    matched.append(hist)
+    
+    return matched
+
+def incremental_intersection(histo_image, database, 
+                            compare_function = jaccard_dist,
+                            bins_to_compare = 10, 
+                            n_matched = 5 ) -> list:
+    """
+    ===========================================================================
+    This function apply the incremental intersection on a given Histogram 
+    object and a Database object, returning the n best matches.
+    ===========================================================================
+    Arguments : 
+        histo_image : the Histogram object of the image
+        database : the Database with all the calculated histograms inside
+        compare_function : the function that will be used for comparison
+        bins_to_compare : the number of bins to compare.
+                          By default,it's equal to 10.
+        n_matched : the n histograms this function will return
+    Returns :
+        The list of the n best histograms matched
+    """
+    assert type(histo_image) is Histogram
+    assert type(database) is Database
+    matplotlib.use("Agg")
+    # ---- On-line phase ----
+
+    new_histo = color_axes(histo_image)
+
+    #Sorts the bins by size while retaining index
+    histo_image_sorted=[]
+    histo_image_sorted.append(np.sort(new_histo,kind='mergesort'))
+    histo_image_sorted.append(np.argsort(new_histo,kind='mergesort'))
+    #histo_image_sorted = [ [list_of_values] , [list_of_original_index] ]
+
+    
+    matched = increment_intersect(histo_image_sorted, database, 
+                                    bins_to_compare)
+
+    #Convert vectors to similarity index
+    comparison_index = []
+    for i in range(len(matched)):
+        comparison_index.append(jaccard_dist(new_histo,
+                                                 matched[i]))
+
+
+    #Sort the distance index while retaining their original index
+    index_sorted=[]
+    index_sorted.append(np.sort(comparison_index,kind='mergesort'))
+    index_sorted.append(np.argsort(comparison_index,kind='mergesort'))
+
+    #Retrieve the n highest index
+    n_match_index = []
+    for i in range(n_matched):
+        n_match_index.append(index_sorted[0][i])
+
+    #Retrieve the n best histograms matched
+    result = []
+    n_matched
+    for i in n_matched :
+        result.append(matched[n_match_index[i]])
+
+    return result
+
+def retrieval(database, histoImage, depth=15, incremental = False, 
+                            compareFunction = jaccard_dist) -> list:
+    """
+    ===========================================================================
+    This function calculates the closest matching images in the database.
+    It returns as many images as the value of depth argument
+    ===========================================================================
+    """
+    assert type(depth) is int
+    assert type(database) is Database
+    assert type(histoImage) is Histogram
+    assert type(incremental) is bool
+    matplotlib.use("Agg")
+   
+    result=[]
+    value=0
+
+    if incremental : #For incremental method
+        histoImage = color_axes(histoImage)
+        for a in database.bin_histograms():
+            if len(result)<depth:
+                bisect.insort(result, (compareFunction(histoImage, a[1]), 
+                                     a[1].image.getpath()))
+        else:
+            value=compareFunction(histoImage, a[1])
+            if value>result[-1][0]:
+                del(result[-1])
+                bisect.insort(result, (value, a.image.getpath()))
+
+    else : #For intersection method
+        value=0
+        for a in database.histograms():
+            if len(result)<depth:
+                bisect.insort(result, (match_value(histoImage, a[1]), 
+                                         a[1].image.getpath()))
+            else:
+                value=match_value(histoImage, a[1])
+                if value>result[-1][0]:
+                    del(result[-1])
+                    bisect.insort(result, (value, a[1].image.getpath()))
+
+    return result
+        
+        
+    
+    
+def label_images(img):
+    """
+    ===========================================================================
+    This function is a labelling of a given image according to potential(s)
+    caracteristic(s)
+    ===========================================================================
+    """
+    assert type(img) is Image
+
+def cluster(db):
+    """
+    ===========================================================================
+    Groups the images in the database according to the labels that have been
+    assigned to them
+    ===========================================================================
+    """
+    assert type(db) is Database
+
